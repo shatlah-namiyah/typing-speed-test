@@ -46,13 +46,10 @@ typing-speed-test/
 ├── scores.json       # Auto-generated, stores anonymous CPS scores
 └── README.md
 
-☁️ Deploy on Streamlit Cloud
+☁️ Deployed on Streamlit Cloud
 
-Push this repo to GitHub
-Go to streamlit.io/cloud
-Connect your GitHub repo
-Set main file as app.py
-Click Deploy
+▶️🤾‍♀️ play it here   https://typing-speed-test-here.streamlit.app
+
 
 
 📝 License
