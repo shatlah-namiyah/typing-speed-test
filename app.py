@@ -345,7 +345,7 @@ if st.session_state.submitted and st.session_state.result:
         <div class="result-box">
             <div class="result-label">YOUR SPEED</div>
             <div class="result-cps">{r['cps']}</div>
-            <div class="result-unit">CHARACTERS PER SECOND</div>
+            <div class="result-unit">CHARACTERS PER MINUTE</div>
             <div class="result-divider"></div>
             <div class="result-rank-label">YOUR RANK</div>
             <div class="result-rank">{r['rank']}</div>
