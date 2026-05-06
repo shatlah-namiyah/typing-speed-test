@@ -31,7 +31,7 @@ Streamlit
 
 📦 Run Locally
 1. Clone the repo
-bashgit clone https://github.com/YOURUSERNAME/typing-speed-test.git
+bashgit clone https://github.com/shatlah-namiyah/typing-speed-test.git
 cd typing-speed-test
 2. Install dependencies
 bashpip install -r requirements.txt
