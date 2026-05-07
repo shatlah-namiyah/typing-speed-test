@@ -36,7 +36,7 @@ h1, h2, h3 {
 .subtitle {
     font-family: 'Share Tech Mono', monospace;
     font-size: 0.85rem;
-    color: #555;
+    color: #00ffff;
     text-align: center;
     letter-spacing: 3px;
     margin-bottom: 2.5rem;
@@ -79,11 +79,11 @@ h1, h2, h3 {
     font-family: 'Bebas Neue', sans-serif;
     font-size: 1rem;
     letter-spacing: 4px;
-    color: #555;
+    color: #7fffd4;
     margin-bottom: 0.3rem;
 }
 
-.result-cps {
+.result-cpm {
     font-family: 'Bebas Neue', sans-serif;
     font-size: 3.2rem;
     color: #39ff14;
@@ -94,7 +94,7 @@ h1, h2, h3 {
 .result-unit {
     font-family: 'Share Tech Mono', monospace;
     font-size: 0.75rem;
-    color: #444;
+    color: #e0ffff;
     letter-spacing: 2px;
     margin-bottom: 1.2rem;
 }
@@ -110,7 +110,7 @@ h1, h2, h3 {
     font-family: 'Bebas Neue', sans-serif;
     letter-spacing: 4px;
     font-size: 0.9rem;
-    color: #444;
+    color: #e0ffff;
 }
 
 .result-rank {
@@ -222,25 +222,25 @@ def load_scores():
             return json.load(f)
     return []
 
-def save_score(cps):
+def save_score(cpm):
     scores = load_scores()
-    scores.append(round(cps, 3))
+    scores.append(round(cpm, 3))
     with open(SCORES_FILE, "w") as f:
         json.dump(scores, f)
 
-def get_percentile(cps):
+def get_percentile(cpm):
     scores = load_scores()
     if len(scores) <= 1:
         return None
-    beaten = sum(1 for s in scores if s < cps)
+    beaten = sum(1 for s in scores if s < cpm)
     return round((beaten / len(scores)) * 100, 1)
 
-def get_rank(cps):
-    if cps >= 7:
+def get_rank(cpm):
+    if cpm >= 550:
         return "ELITE"
-    elif cps >= 5:
+    elif cpm >= 400:
         return "FAST"
-    elif cps >= 3:
+    elif cpm >= 200:
         return "INTERMEDIATE"
     else:
         return "BEGINNER"
@@ -265,7 +265,7 @@ if all_scores:
     st.markdown(
         f'<div style="text-align:center;margin-bottom:1rem;">'
         f'<span class="stat-pill">⚡ {len(all_scores)} games played</span>'
-        f'<span class="stat-pill">avg {round(sum(all_scores)/len(all_scores),2)} cps</span>'
+        f'<span class="stat-pill">avg {round(sum(all_scores)/len(all_scores),2)} cpm</span>'
         f'</div>',
         unsafe_allow_html=True
     )
@@ -301,20 +301,20 @@ if not st.session_state.submitted:
         st.rerun()
 
     if submit and user_input:
-        elapsed = time.time() - st.session_state.start_time if st.session_state.start_time else 1
+        elapsed = max(time.time() - st.session_state.start_time, 1)
         target = st.session_state.sentence.strip()
         typed = user_input.strip()
 
         if typed != target:
             st.session_state.result = {"disqualified": True, "typed": typed, "target": target}
         else:
-            cps = round(len(typed) / elapsed, 2)
-            save_score(cps)
-            percentile = get_percentile(cps)
-            rank = get_rank(cps)
+            cpm = round((len(typed) / elapsed)*60, 2)
+            save_score(cpm)
+            percentile = get_percentile(cpm)
+            rank = get_rank(cpm)
             st.session_state.result = {
                 "disqualified": False,
-                "cps": cps,
+                "cpm": cpm,
                 "rank": rank,
                 "percentile": percentile,
                 "elapsed": round(elapsed, 2),
@@ -344,7 +344,7 @@ if st.session_state.submitted and st.session_state.result:
         st.markdown(f"""
         <div class="result-box">
             <div class="result-label">YOUR SPEED</div>
-            <div class="result-cps">{r['cps']}</div>
+            <div class="result-cpm">{r['cpm']}</div>
             <div class="result-unit">CHARACTERS PER MINUTE</div>
             <div class="result-divider"></div>
             <div class="result-rank-label">YOUR RANK</div>
