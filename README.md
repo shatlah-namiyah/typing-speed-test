@@ -1,12 +1,14 @@
 # typing-speed-test
-Typing speed test built with Python and Streamlit. Measures your characters per second and ranks you against all previous players. And u're LOUDLY announced disqualified for any mistake.
+Typing speed test built with Python and Streamlit. Measures your characters per minute and ranks you against all previous players. And u're LOUDLY announced disqualified for any mistake.
 
 ⌨️ Typing Speed Test
 A browser-based typing speed test built with Python and Streamlit.
 Type fast. Type accurate. One wrong character and you're disqualified.
 
+☁️ Deployed on Streamlit Cloud
+
 🚀 Live Demo
-👉 Play it here ← (update this after deploying)
+▶️🤾‍♀️ play it here   https://typing-speed-test-here.streamlit.app
 
 🎮 How It Works
 
@@ -14,13 +16,13 @@ A random sentence is shown on screen
 Type it exactly as shown
 Hit Submit
 If your input doesn't match exactly → Disqualified
-If correct → your CPS (characters per second) is calculated
+If correct → your CPM (characters per minute) is calculated
 You get a rank based on your speed
 Your score is compared against all previous players anonymously — no username needed
 
 
 🏆 Rank System
-RankSpeed🟢 Elite7+ CPS🔵 Fast5–7 CPS🟡 Intermediate3–5 CPS⚪ Beginner0–3 CPS
+RankSpeed🟢 Elite550+ CPM🔵 Fast301–550 CPM🟡 Intermediate201–300 CPM⚪ Beginner0–200 CPM
 Your percentile is also shown — "faster than X% of all players"
 
 🛠️ Built With
@@ -45,11 +47,6 @@ typing-speed-test/
 ├── requirements.txt  # Dependencies
 ├── scores.json       # Auto-generated, stores anonymous CPS scores
 └── README.md
-
-☁️ Deployed on Streamlit Cloud
-
-▶️🤾‍♀️ play it here   https://typing-speed-test-here.streamlit.app
-
 
 
 📝 License
