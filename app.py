@@ -256,6 +256,8 @@ if "submitted" not in st.session_state:
     st.session_state.submitted = False
 if "timer_started" not in st.session_state:
     st.session_state.timer_started = False
+if "input_history" not in st.session_state:
+    st.session_state.input_history = ""
 
 # ── UI ─────────────────────────────────────────────────────────────────────────
 st.markdown('<div class="title">TYPE TEST</div>', unsafe_allow_html=True)
@@ -285,10 +287,11 @@ if not st.session_state.submitted:
         label_visibility="collapsed"
     )
 
-    # Start timer on first keystroke (when input length becomes 1 from 0)
+    # Start timer on first keystroke - FIXED: Check if input has changed and is not empty
     if user_input and len(user_input.strip()) > 0 and not st.session_state.timer_started:
         st.session_state.start_time = time.time()
         st.session_state.timer_started = True
+        st.session_state.input_history = user_input
 
     col1, col2 = st.columns([2, 1])
     with col1:
@@ -302,15 +305,31 @@ if not st.session_state.submitted:
         st.session_state.result = None
         st.session_state.submitted = False
         st.session_state.timer_started = False
+        st.session_state.input_history = ""
         st.rerun()
 
     if submit and user_input:
-        # Only calculate if timer was started
-        if st.session_state.start_time is not None:
-            elapsed = max(time.time() - st.session_state.start_time, 0.1)
-        else:
-            # If user just submitted without typing anything
-            elapsed = 0.1
+        # CRITICAL FIX: Ensure timer has started, if not, user didn't type anything
+        if not st.session_state.timer_started or st.session_state.start_time is None:
+            st.session_state.result = {
+                "disqualified": True,
+                "typed": user_input.strip(),
+                "target": st.session_state.sentence.strip(),
+                "accuracy_msg": "You must start typing before submitting!"
+            }
+            st.session_state.submitted = True
+            st.rerun()
+        
+        # Calculate elapsed time - this should now be accurate
+        end_time = time.time()
+        elapsed = end_time - st.session_state.start_time
+        
+        # Debug: Store elapsed time for display
+        debug_elapsed = elapsed
+        
+        # ENSURE minimum time of 0.5 seconds to prevent division by near-zero
+        if elapsed < 0.5:
+            elapsed = 0.5
             
         target = st.session_state.sentence.strip()
         typed = user_input.strip()
@@ -325,7 +344,7 @@ if not st.session_state.submitted:
             
             if len(target) > 0:
                 accuracy = (correct_chars / len(target)) * 100
-                accuracy_msg = f"Accuracy: {accuracy:.1f}%"
+                accuracy_msg = f"Accuracy: {accuracy:.1f}% (text didn't match exactly)"
             else:
                 accuracy_msg = "No text entered"
                 
@@ -336,27 +355,22 @@ if not st.session_state.submitted:
                 "accuracy_msg": accuracy_msg
             }
         else:
-            # Calculate WPM (Words Per Minute) first, then convert to CPM
-            # Standard formula: 1 word = 5 characters (including spaces)
-            # WPM = (characters_typed / 5) / (time_in_minutes)
-            # Then CPM = WPM * 5 (but we'll just show CPM directly)
-            
+            # CORRECT CPM CALCULATION
             characters_typed = len(typed)
-            time_in_minutes = elapsed / 60
             
-            # Calculate WPM first
-            wpm = (characters_typed / 5) / time_in_minutes
-            
-            # CPM is simply characters per minute = (characters_typed / time_in_seconds) * 60
+            # CPM = (characters / seconds) * 60
             cpm = (characters_typed / elapsed) * 60
             
-            # For realistic typing speeds:
-            # - Average typist: 40 WPM = 200 CPM
-            # - Good typist: 60 WPM = 300 CPM  
-            # - Professional: 80 WPM = 400 CPM
-            # - Elite: 100+ WPM = 500+ CPM
+            # Calculate WPM (standard: 1 word = 5 characters)
+            wpm = (characters_typed / 5) / (elapsed / 60)
+            
+            # Cap at realistic maximum (600 CPM = 120 WPM, world record is around 900 CPM)
+            if cpm > 900:
+                cpm = 900
+                wpm = 180
             
             cpm = round(cpm, 2)
+            wpm = round(wpm, 2)
             
             save_score(cpm)
             percentile = get_percentile(cpm)
@@ -365,10 +379,11 @@ if not st.session_state.submitted:
             st.session_state.result = {
                 "disqualified": False,
                 "cpm": cpm,
-                "wpm": round(wpm, 2),
+                "wpm": wpm,
                 "rank": rank,
                 "percentile": percentile,
-                "elapsed": round(elapsed, 2),
+                "elapsed": round(debug_elapsed, 2),
+                "capped_elapsed": round(elapsed, 2),
                 "correct_chars": len(typed),
                 "total_chars": len(target)
             }
@@ -384,7 +399,7 @@ if st.session_state.submitted and st.session_state.result:
         st.markdown(f"""
         <div class="disqualified-box">
             ✕ DISQUALIFIED
-            <div class="disq-sub">TEXT DOES NOT MATCH — {r.get('accuracy_msg', 'TRY AGAIN')}</div>
+            <div class="disq-sub">{r.get('accuracy_msg', 'TEXT DOES NOT MATCH — TRY AGAIN')}</div>
         </div>
         """, unsafe_allow_html=True)
     else:
@@ -408,7 +423,7 @@ if st.session_state.submitted and st.session_state.result:
 
         st.markdown(
             f'<div style="text-align:center;">'
-            f'<span class="stat-pill">⏱ {r["elapsed"]}s elapsed</span>'
+            f'<span class="stat-pill">⏱ {r["elapsed"]} seconds</span>'
             f'<span class="stat-pill">{r["total_chars"]} chars</span>'
             f'<span class="stat-pill">✓ {r["correct_chars"]} correct</span>'
             f'<span class="stat-pill">📊 {r["wpm"]} WPM</span>'
@@ -423,4 +438,5 @@ if st.session_state.submitted and st.session_state.result:
         st.session_state.result = None
         st.session_state.submitted = False
         st.session_state.timer_started = False
+        st.session_state.input_history = ""
         st.rerun()
