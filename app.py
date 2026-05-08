@@ -224,7 +224,7 @@ def load_scores():
 
 def save_score(cpm):
     scores = load_scores()
-    scores.append(round(cpm, 3))
+    scores.append(round(cpm, 2))
     with open(SCORES_FILE, "w") as f:
         json.dump(scores, f)
 
@@ -236,9 +236,9 @@ def get_percentile(cpm):
     return round((beaten / len(scores)) * 100, 1)
 
 def get_rank(cpm):
-    if cpm >= 550:
+    if cpm >= 400:
         return "ELITE"
-    elif cpm >= 400:
+    elif cpm >= 300:
         return "FAST"
     elif cpm >= 200:
         return "INTERMEDIATE"
@@ -314,18 +314,16 @@ if not st.session_state.submitted:
             
         target = st.session_state.sentence.strip()
         typed = user_input.strip()
-        
-        # Count only correctly typed characters up to the length of typed text
-        # This ensures accurate CPM based on correct characters, not total typed
-        correct_chars = 0
-        min_length = min(len(typed), len(target))
-        for i in range(min_length):
-            if typed[i] == target[i]:
-                correct_chars += 1
 
         if typed != target:
-            # Calculate accuracy percentage for disqualification message
-            if len(typed) > 0:
+            # Calculate accuracy for feedback
+            correct_chars = 0
+            min_length = min(len(typed), len(target))
+            for i in range(min_length):
+                if typed[i] == target[i]:
+                    correct_chars += 1
+            
+            if len(target) > 0:
                 accuracy = (correct_chars / len(target)) * 100
                 accuracy_msg = f"Accuracy: {accuracy:.1f}%"
             else:
@@ -338,19 +336,40 @@ if not st.session_state.submitted:
                 "accuracy_msg": accuracy_msg
             }
         else:
-            # Calculate CPM based on correct characters (which equals total characters when perfect match)
-            # Using correct_chars (which equals len(target) for perfect matches)
-            cpm = round((correct_chars / elapsed) * 60, 2)
+            # Calculate WPM (Words Per Minute) first, then convert to CPM
+            # Standard formula: 1 word = 5 characters (including spaces)
+            # WPM = (characters_typed / 5) / (time_in_minutes)
+            # Then CPM = WPM * 5 (but we'll just show CPM directly)
+            
+            characters_typed = len(typed)
+            time_in_minutes = elapsed / 60
+            
+            # Calculate WPM first
+            wpm = (characters_typed / 5) / time_in_minutes
+            
+            # CPM is simply characters per minute = (characters_typed / time_in_seconds) * 60
+            cpm = (characters_typed / elapsed) * 60
+            
+            # For realistic typing speeds:
+            # - Average typist: 40 WPM = 200 CPM
+            # - Good typist: 60 WPM = 300 CPM  
+            # - Professional: 80 WPM = 400 CPM
+            # - Elite: 100+ WPM = 500+ CPM
+            
+            cpm = round(cpm, 2)
+            
             save_score(cpm)
             percentile = get_percentile(cpm)
             rank = get_rank(cpm)
+            
             st.session_state.result = {
                 "disqualified": False,
                 "cpm": cpm,
+                "wpm": round(wpm, 2),
                 "rank": rank,
                 "percentile": percentile,
                 "elapsed": round(elapsed, 2),
-                "correct_chars": correct_chars,
+                "correct_chars": len(typed),
                 "total_chars": len(target)
             }
 
@@ -392,6 +411,7 @@ if st.session_state.submitted and st.session_state.result:
             f'<span class="stat-pill">⏱ {r["elapsed"]}s elapsed</span>'
             f'<span class="stat-pill">{r["total_chars"]} chars</span>'
             f'<span class="stat-pill">✓ {r["correct_chars"]} correct</span>'
+            f'<span class="stat-pill">📊 {r["wpm"]} WPM</span>'
             f'</div>',
             unsafe_allow_html=True
         )
