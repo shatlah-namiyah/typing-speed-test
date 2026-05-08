@@ -192,7 +192,7 @@ h1, h2, h3 {
     padding: 0.25rem 0.9rem;
     font-family: 'Share Tech Mono', monospace;
     font-size: 0.75rem;
-    color: #006400;
+    color: #d3d3d3;
     margin: 0.2rem;
 }
 </style>
