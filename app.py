@@ -237,11 +237,11 @@ def get_percentile(cpm):
     return round((beaten / len(scores)) * 100, 1)
 
 def get_rank(cpm):
-    if cpm >= 400:
+    if cpm >= 380:
         return "ELITE"
-    elif cpm >= 300:
+    elif cpm >= 280:
         return "FAST"
-    elif cpm >= 200:
+    elif cpm >= 150:
         return "INTERMEDIATE"
     else:
         return "BEGINNER"
