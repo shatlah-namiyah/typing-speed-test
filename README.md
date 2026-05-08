@@ -22,7 +22,8 @@ Your score is compared against all previous players anonymously — no username 
 
 
 🏆 Rank System
-RankSpeed🟢 Elite550+ CPM🔵 Fast301–550 CPM🟡 Intermediate201–300 CPM⚪ Beginner0–200 CPM
+RankSpeed🟢 Elite380+ CPM🔵 Fast281-380 CPM🟡 Intermediate150–280 CPM⚪ Beginner0–150 CPM
+
 Your percentile is also shown — "faster than X% of all players"
 
 🛠️ Built With
