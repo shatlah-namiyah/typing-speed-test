@@ -18,11 +18,6 @@ html, body, [class*="css"] {
     font-family: 'Inter', sans-serif;
 }
 
-h1, h2, h3 {
-    font-family: 'Bebas Neue', sans-serif;
-    letter-spacing: 3px;
-}
-
 .title {
     font-family: 'Bebas Neue', sans-serif;
     font-size: 3.5rem;
@@ -63,16 +58,14 @@ h1, h2, h3 {
     padding: 2rem;
     text-align: center;
     box-shadow: 0 0 30px rgba(57,255,20,0.12), inset 0 0 40px rgba(0,0,0,0.8);
-    margin: 1.5rem 0;
+    margin: 1.5rem auto;
     font-family: 'Share Tech Mono', monospace;
+    max-width: 340px;
     aspect-ratio: 1 / 1;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    max-width: 340px;
-    margin-left: auto;
-    margin-right: auto;
 }
 
 .result-label {
@@ -102,7 +95,7 @@ h1, h2, h3 {
 .result-divider {
     width: 60px;
     height: 1px;
-    background: #222;
+    background: #333;
     margin: 0.8rem auto;
 }
 
@@ -195,6 +188,15 @@ h1, h2, h3 {
     color: #d3d3d3;
     margin: 0.2rem;
 }
+
+.timer-display {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+    color: #39ff14;
+    text-align: center;
+    margin-bottom: 0.5rem;
+    letter-spacing: 2px;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -205,17 +207,16 @@ SENTENCES = [
     "The human brain can generate about 20 watts of electrical power.",
     "A fast typist knows when to slow down and be precise.",
     "YouTube Shorts get roughly 6 to 10 times more views on average.",
-    "Air pollution causes approximately 7M premature deaths/year worldwide.",
+    "Air pollution causes approximately 7M premature deaths per year worldwide.",
     "Consistency beats raw speed over a long career.",
     "Have you ever thought about death?",
     "Type with confidence and the speed will come naturally.",
-    "Doesn't God exist? Can u tell me?",
-    "Fall seven times, stand up eight – Japanese Proverb",
+    "Fall seven times, stand up eight. That is the Japanese way.",
 ]
 
 SCORES_FILE = "scores.json"
 
-# ── Score helpers ──────────────────────────────────────────────────────────────
+# ── Helpers ────────────────────────────────────────────────────────────────────
 def load_scores():
     if os.path.exists(SCORES_FILE):
         with open(SCORES_FILE, "r") as f:
@@ -224,7 +225,7 @@ def load_scores():
 
 def save_score(cpm):
     scores = load_scores()
-    scores.append(round(cpm, 2))
+    scores.append(round(cpm, 1))
     with open(SCORES_FILE, "w") as f:
         json.dump(scores, f)
 
@@ -245,29 +246,35 @@ def get_rank(cpm):
     else:
         return "BEGINNER"
 
+def reset_game():
+    st.session_state.sentence = random.choice(SENTENCES)
+    st.session_state.start_time = None
+    st.session_state.result = None
+    st.session_state.submitted = False
+
 # ── Session state init ─────────────────────────────────────────────────────────
-if "game_active" not in st.session_state:
-    st.session_state.game_active = True
 if "sentence" not in st.session_state:
     st.session_state.sentence = random.choice(SENTENCES)
 if "start_time" not in st.session_state:
+    # Start time is set ONCE when user submits
+    # We use a JS timestamp approach via a hidden input trick
     st.session_state.start_time = None
 if "result" not in st.session_state:
     st.session_state.result = None
-if "timer_running" not in st.session_state:
-    st.session_state.timer_running = False
+if "submitted" not in st.session_state:
+    st.session_state.submitted = False
 
 # ── UI ─────────────────────────────────────────────────────────────────────────
 st.markdown('<div class="title">TYPE TEST</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">// MEASURE YOUR SPEED //</div>', unsafe_allow_html=True)
 
-# Show total games played
+# Global stats
 all_scores = load_scores()
 if all_scores:
     st.markdown(
         f'<div style="text-align:center;margin-bottom:1rem;">'
         f'<span class="stat-pill">⚡ {len(all_scores)} games played</span>'
-        f'<span class="stat-pill">avg {round(sum(all_scores)/len(all_scores),2)} cpm</span>'
+        f'<span class="stat-pill">avg {round(sum(all_scores)/len(all_scores), 1)} cpm</span>'
         f'</div>',
         unsafe_allow_html=True
     )
@@ -275,104 +282,93 @@ if all_scores:
 # Target sentence
 st.markdown(f'<div class="sentence-box">{st.session_state.sentence}</div>', unsafe_allow_html=True)
 
-# Main game area
-if st.session_state.game_active:
+# ── Game input ─────────────────────────────────────────────────────────────────
+if not st.session_state.submitted:
+
     user_input = st.text_area(
-        "Type the text above exactly:",
+        "Type here:",
         height=100,
-        key="user_input",
-        placeholder="Start typing here...",
+        key="typing_input",
+        placeholder="Start typing the text above — timer starts when you click START...",
         label_visibility="collapsed"
     )
-    
-    # Start timer when user starts typing
-    if user_input and len(user_input) > 0 and not st.session_state.timer_running:
-        st.session_state.start_time = time.time()
-        st.session_state.timer_running = True
-    
-    col1, col2 = st.columns(2)
+
+    col1, col2, col3 = st.columns([1, 2, 1])
     with col1:
-        submit_btn = st.button("SUBMIT", type="primary", use_container_width=True)
+        start = st.button("START", use_container_width=True)
     with col2:
-        new_game_btn = st.button("NEW TEXT", use_container_width=True)
-    
-    if new_game_btn:
-        st.session_state.sentence = random.choice(SENTENCES)
-        st.session_state.start_time = None
-        st.session_state.result = None
-        st.session_state.timer_running = False
-        st.session_state.game_active = True
+        submit = st.button("SUBMIT", use_container_width=True)
+    with col3:
+        new_text = st.button("NEW TEXT", use_container_width=True)
+
+    # START button locks the timer
+    if start:
+        if st.session_state.start_time is None:
+            st.session_state.start_time = time.time()
+            st.rerun()
+
+    # Show timer status
+    if st.session_state.start_time is not None:
+        live_elapsed = round(time.time() - st.session_state.start_time, 1)
+        st.markdown(f'<div class="timer-display">⏱ {live_elapsed}s — TIMER RUNNING</div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div class="timer-display" style="color:#555;">Press START when ready</div>', unsafe_allow_html=True)
+
+    if new_text:
+        reset_game()
         st.rerun()
-    
-    if submit_btn:
-        if not user_input or len(user_input.strip()) == 0:
-            st.error("Please type something before submitting!")
-        elif not st.session_state.timer_running:
-            st.error("Please start typing before submitting!")
+
+    if submit:
+        if st.session_state.start_time is None:
+            st.warning("Press START first to begin the timer.")
+        elif not user_input or len(user_input.strip()) == 0:
+            st.warning("Type something before submitting.")
         else:
-            # Calculate time
             end_time = time.time()
-            total_time = end_time - st.session_state.start_time
-            
-            # Get the text
-            target_text = st.session_state.sentence.strip()
-            typed_text = user_input.strip()
-            
-            # Check for exact match
-            if typed_text != target_text:
-                st.session_state.result = {
-                    "success": False,
-                    "message": "Text does not match exactly!"
-                }
-                st.session_state.game_active = False
-                st.rerun()
+            elapsed = end_time - st.session_state.start_time
+
+            target = st.session_state.sentence.strip()
+            typed = user_input.strip()
+
+            if typed != target:
+                st.session_state.result = {"disqualified": True}
             else:
-                # Calculate CPM correctly
-                char_count = len(typed_text)
-                minutes = total_time / 60
-                cpm = char_count / minutes
-                
-                # Round to 1 decimal
-                cpm = round(cpm, 1)
-                
-                # Calculate WPM (standard: 1 word = 5 characters)
+                cpm = round((len(typed) / elapsed) * 60, 1)
                 wpm = round(cpm / 5, 1)
-                
-                # Save score
                 save_score(cpm)
                 percentile = get_percentile(cpm)
                 rank = get_rank(cpm)
-                
                 st.session_state.result = {
-                    "success": True,
+                    "disqualified": False,
                     "cpm": cpm,
                     "wpm": wpm,
                     "rank": rank,
                     "percentile": percentile,
-                    "time": round(total_time, 2),
-                    "char_count": char_count
+                    "elapsed": round(elapsed, 2),
+                    "chars": len(typed),
                 }
-                st.session_state.game_active = False
-                st.rerun()
 
-# Show results
-if not st.session_state.game_active and st.session_state.result:
+            st.session_state.submitted = True
+            st.rerun()
+
+# ── Results ────────────────────────────────────────────────────────────────────
+if st.session_state.submitted and st.session_state.result:
     r = st.session_state.result
-    
-    if not r["success"]:
-        st.markdown(f"""
+
+    if r["disqualified"]:
+        st.markdown("""
         <div class="disqualified-box">
-            ✕ {r['message']}
-            <div class="disq-sub">TRY AGAIN WITH EXACT MATCH</div>
+            ✕ DISQUALIFIED
+            <div class="disq-sub">TEXT DOES NOT MATCH — TRY AGAIN</div>
         </div>
         """, unsafe_allow_html=True)
     else:
-        percentile_html = ""
-        if r["percentile"] is not None:
-            percentile_html = f'<div class="result-percentile">faster than {r["percentile"]}% of players</div>'
-        else:
-            percentile_html = '<div class="result-percentile">first result recorded</div>'
-        
+        percentile_html = (
+            f'<div class="result-percentile">faster than {r["percentile"]}% of players</div>'
+            if r["percentile"] is not None
+            else '<div class="result-percentile">first result recorded</div>'
+        )
+
         st.markdown(f"""
         <div class="result-box">
             <div class="result-label">YOUR SPEED</div>
@@ -384,21 +380,17 @@ if not st.session_state.game_active and st.session_state.result:
             {percentile_html}
         </div>
         """, unsafe_allow_html=True)
-        
+
         st.markdown(
             f'<div style="text-align:center;">'
-            f'<span class="stat-pill">⏱ {r["time"]} seconds</span>'
-            f'<span class="stat-pill">{r["char_count"]} characters</span>'
+            f'<span class="stat-pill">⏱ {r["elapsed"]}s</span>'
+            f'<span class="stat-pill">{r["chars"]} chars</span>'
             f'<span class="stat-pill">📊 {r["wpm"]} WPM</span>'
             f'</div>',
             unsafe_allow_html=True
         )
-    
+
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("PLAY AGAIN", use_container_width=True):
-        st.session_state.sentence = random.choice(SENTENCES)
-        st.session_state.start_time = None
-        st.session_state.result = None
-        st.session_state.timer_running = False
-        st.session_state.game_active = True
+        reset_game()
         st.rerun()
