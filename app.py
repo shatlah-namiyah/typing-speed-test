@@ -254,6 +254,8 @@ if "result" not in st.session_state:
     st.session_state.result = None
 if "submitted" not in st.session_state:
     st.session_state.submitted = False
+if "timer_started" not in st.session_state:
+    st.session_state.timer_started = False
 
 # ── UI ─────────────────────────────────────────────────────────────────────────
 st.markdown('<div class="title">TYPE TEST</div>', unsafe_allow_html=True)
@@ -283,9 +285,10 @@ if not st.session_state.submitted:
         label_visibility="collapsed"
     )
 
-    # Start timer on first keystroke
-    if user_input and st.session_state.start_time is None:
+    # Start timer on first keystroke (when input length becomes 1 from 0)
+    if user_input and len(user_input.strip()) > 0 and not st.session_state.timer_started:
         st.session_state.start_time = time.time()
+        st.session_state.timer_started = True
 
     col1, col2 = st.columns([2, 1])
     with col1:
@@ -298,17 +301,46 @@ if not st.session_state.submitted:
         st.session_state.start_time = None
         st.session_state.result = None
         st.session_state.submitted = False
+        st.session_state.timer_started = False
         st.rerun()
 
     if submit and user_input:
-        elapsed = max(time.time() - st.session_state.start_time, 1)
+        # Only calculate if timer was started
+        if st.session_state.start_time is not None:
+            elapsed = max(time.time() - st.session_state.start_time, 0.1)
+        else:
+            # If user just submitted without typing anything
+            elapsed = 0.1
+            
         target = st.session_state.sentence.strip()
         typed = user_input.strip()
+        
+        # Count only correctly typed characters up to the length of typed text
+        # This ensures accurate CPM based on correct characters, not total typed
+        correct_chars = 0
+        min_length = min(len(typed), len(target))
+        for i in range(min_length):
+            if typed[i] == target[i]:
+                correct_chars += 1
 
         if typed != target:
-            st.session_state.result = {"disqualified": True, "typed": typed, "target": target}
+            # Calculate accuracy percentage for disqualification message
+            if len(typed) > 0:
+                accuracy = (correct_chars / len(target)) * 100
+                accuracy_msg = f"Accuracy: {accuracy:.1f}%"
+            else:
+                accuracy_msg = "No text entered"
+                
+            st.session_state.result = {
+                "disqualified": True, 
+                "typed": typed, 
+                "target": target,
+                "accuracy_msg": accuracy_msg
+            }
         else:
-            cpm = round((len(typed) / elapsed)*60, 2)
+            # Calculate CPM based on correct characters (which equals total characters when perfect match)
+            # Using correct_chars (which equals len(target) for perfect matches)
+            cpm = round((correct_chars / elapsed) * 60, 2)
             save_score(cpm)
             percentile = get_percentile(cpm)
             rank = get_rank(cpm)
@@ -318,6 +350,8 @@ if not st.session_state.submitted:
                 "rank": rank,
                 "percentile": percentile,
                 "elapsed": round(elapsed, 2),
+                "correct_chars": correct_chars,
+                "total_chars": len(target)
             }
 
         st.session_state.submitted = True
@@ -328,10 +362,10 @@ if st.session_state.submitted and st.session_state.result:
     r = st.session_state.result
 
     if r["disqualified"]:
-        st.markdown("""
+        st.markdown(f"""
         <div class="disqualified-box">
             ✕ DISQUALIFIED
-            <div class="disq-sub">TEXT DOES NOT MATCH — TRY AGAIN</div>
+            <div class="disq-sub">TEXT DOES NOT MATCH — {r.get('accuracy_msg', 'TRY AGAIN')}</div>
         </div>
         """, unsafe_allow_html=True)
     else:
@@ -356,7 +390,8 @@ if st.session_state.submitted and st.session_state.result:
         st.markdown(
             f'<div style="text-align:center;">'
             f'<span class="stat-pill">⏱ {r["elapsed"]}s elapsed</span>'
-            f'<span class="stat-pill">{len(st.session_state.sentence)} chars</span>'
+            f'<span class="stat-pill">{r["total_chars"]} chars</span>'
+            f'<span class="stat-pill">✓ {r["correct_chars"]} correct</span>'
             f'</div>',
             unsafe_allow_html=True
         )
@@ -367,4 +402,5 @@ if st.session_state.submitted and st.session_state.result:
         st.session_state.start_time = None
         st.session_state.result = None
         st.session_state.submitted = False
+        st.session_state.timer_started = False
         st.rerun()
