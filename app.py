@@ -246,18 +246,16 @@ def get_rank(cpm):
         return "BEGINNER"
 
 # ── Session state init ─────────────────────────────────────────────────────────
+if "game_active" not in st.session_state:
+    st.session_state.game_active = True
 if "sentence" not in st.session_state:
     st.session_state.sentence = random.choice(SENTENCES)
 if "start_time" not in st.session_state:
     st.session_state.start_time = None
 if "result" not in st.session_state:
     st.session_state.result = None
-if "submitted" not in st.session_state:
-    st.session_state.submitted = False
-if "timer_started" not in st.session_state:
-    st.session_state.timer_started = False
-if "input_history" not in st.session_state:
-    st.session_state.input_history = ""
+if "timer_running" not in st.session_state:
+    st.session_state.timer_running = False
 
 # ── UI ─────────────────────────────────────────────────────────────────────────
 st.markdown('<div class="title">TYPE TEST</div>', unsafe_allow_html=True)
@@ -277,129 +275,95 @@ if all_scores:
 # Target sentence
 st.markdown(f'<div class="sentence-box">{st.session_state.sentence}</div>', unsafe_allow_html=True)
 
-# Input area
-if not st.session_state.submitted:
+# Main game area
+if st.session_state.game_active:
     user_input = st.text_area(
         "Type the text above exactly:",
         height=100,
-        key="typing_input",
-        placeholder="Start typing the above text here — timer starts on first character...",
+        key="user_input",
+        placeholder="Start typing here...",
         label_visibility="collapsed"
     )
-
-    # Start timer on first keystroke - FIXED: Check if input has changed and is not empty
-    if user_input and len(user_input.strip()) > 0 and not st.session_state.timer_started:
+    
+    # Start timer when user starts typing
+    if user_input and len(user_input) > 0 and not st.session_state.timer_running:
         st.session_state.start_time = time.time()
-        st.session_state.timer_started = True
-        st.session_state.input_history = user_input
-
-    col1, col2 = st.columns([2, 1])
+        st.session_state.timer_running = True
+    
+    col1, col2 = st.columns(2)
     with col1:
-        submit = st.button("SUBMIT", use_container_width=True)
+        submit_btn = st.button("SUBMIT", type="primary", use_container_width=True)
     with col2:
-        new_game = st.button("NEW TEXT", use_container_width=True)
-
-    if new_game:
+        new_game_btn = st.button("NEW TEXT", use_container_width=True)
+    
+    if new_game_btn:
         st.session_state.sentence = random.choice(SENTENCES)
         st.session_state.start_time = None
         st.session_state.result = None
-        st.session_state.submitted = False
-        st.session_state.timer_started = False
-        st.session_state.input_history = ""
+        st.session_state.timer_running = False
+        st.session_state.game_active = True
         st.rerun()
-
-    if submit and user_input:
-        # CRITICAL FIX: Ensure timer has started, if not, user didn't type anything
-        if not st.session_state.timer_started or st.session_state.start_time is None:
-            st.session_state.result = {
-                "disqualified": True,
-                "typed": user_input.strip(),
-                "target": st.session_state.sentence.strip(),
-                "accuracy_msg": "You must start typing before submitting!"
-            }
-            st.session_state.submitted = True
-            st.rerun()
-        
-        # Calculate elapsed time - this should now be accurate
-        end_time = time.time()
-        elapsed = end_time - st.session_state.start_time
-        
-        # Debug: Store elapsed time for display
-        debug_elapsed = elapsed
-        
-        # ENSURE minimum time of 0.5 seconds to prevent division by near-zero
-        if elapsed < 0.5:
-            elapsed = 0.5
-            
-        target = st.session_state.sentence.strip()
-        typed = user_input.strip()
-
-        if typed != target:
-            # Calculate accuracy for feedback
-            correct_chars = 0
-            min_length = min(len(typed), len(target))
-            for i in range(min_length):
-                if typed[i] == target[i]:
-                    correct_chars += 1
-            
-            if len(target) > 0:
-                accuracy = (correct_chars / len(target)) * 100
-                accuracy_msg = f"Accuracy: {accuracy:.1f}% (text didn't match exactly)"
-            else:
-                accuracy_msg = "No text entered"
-                
-            st.session_state.result = {
-                "disqualified": True, 
-                "typed": typed, 
-                "target": target,
-                "accuracy_msg": accuracy_msg
-            }
+    
+    if submit_btn:
+        if not user_input or len(user_input.strip()) == 0:
+            st.error("Please type something before submitting!")
+        elif not st.session_state.timer_running:
+            st.error("Please start typing before submitting!")
         else:
-            # CORRECT CPM CALCULATION
-            characters_typed = len(typed)
+            # Calculate time
+            end_time = time.time()
+            total_time = end_time - st.session_state.start_time
             
-            # CPM = (characters / seconds) * 60
-            cpm = (characters_typed / elapsed) * 60
+            # Get the text
+            target_text = st.session_state.sentence.strip()
+            typed_text = user_input.strip()
             
-            # Calculate WPM (standard: 1 word = 5 characters)
-            wpm = (characters_typed / 5) / (elapsed / 60)
-            
-            # Cap at realistic maximum (600 CPM = 120 WPM, world record is around 900 CPM)
-            if cpm > 900:
-                cpm = 900
-                wpm = 180
-            
-            cpm = round(cpm, 2)
-            wpm = round(wpm, 2)
-            
-            save_score(cpm)
-            percentile = get_percentile(cpm)
-            rank = get_rank(cpm)
-            
-            st.session_state.result = {
-                "disqualified": False,
-                "cpm": cpm,
-                "wpm": wpm,
-                "rank": rank,
-                "percentile": percentile,
-                "elapsed": round(debug_elapsed, 2),
-                "capped_elapsed": round(elapsed, 2),
-                "correct_chars": len(typed),
-                "total_chars": len(target)
-            }
+            # Check for exact match
+            if typed_text != target_text:
+                st.session_state.result = {
+                    "success": False,
+                    "message": "Text does not match exactly!"
+                }
+                st.session_state.game_active = False
+                st.rerun()
+            else:
+                # Calculate CPM correctly
+                char_count = len(typed_text)
+                minutes = total_time / 60
+                cpm = char_count / minutes
+                
+                # Round to 1 decimal
+                cpm = round(cpm, 1)
+                
+                # Calculate WPM (standard: 1 word = 5 characters)
+                wpm = round(cpm / 5, 1)
+                
+                # Save score
+                save_score(cpm)
+                percentile = get_percentile(cpm)
+                rank = get_rank(cpm)
+                
+                st.session_state.result = {
+                    "success": True,
+                    "cpm": cpm,
+                    "wpm": wpm,
+                    "rank": rank,
+                    "percentile": percentile,
+                    "time": round(total_time, 2),
+                    "char_count": char_count
+                }
+                st.session_state.game_active = False
+                st.rerun()
 
-        st.session_state.submitted = True
-        st.rerun()
-
-# ── Result display ─────────────────────────────────────────────────────────────
-if st.session_state.submitted and st.session_state.result:
+# Show results
+if not st.session_state.game_active and st.session_state.result:
     r = st.session_state.result
-
-    if r["disqualified"]:
+    
+    if not r["success"]:
         st.markdown(f"""
         <div class="disqualified-box">
-            ✕ DISQUALIFIED
-            <div class="disq-sub">{r.get('accuracy_msg', 'TEXT DOES NOT MATCH — TRY AGAIN')}</div>
+            ✕ {r['message']}
+            <div class="disq-sub">TRY AGAIN WITH EXACT MATCH</div>
         </div>
         """, unsafe_allow_html=True)
     else:
@@ -408,7 +372,7 @@ if st.session_state.submitted and st.session_state.result:
             percentile_html = f'<div class="result-percentile">faster than {r["percentile"]}% of players</div>'
         else:
             percentile_html = '<div class="result-percentile">first result recorded</div>'
-
+        
         st.markdown(f"""
         <div class="result-box">
             <div class="result-label">YOUR SPEED</div>
@@ -420,23 +384,21 @@ if st.session_state.submitted and st.session_state.result:
             {percentile_html}
         </div>
         """, unsafe_allow_html=True)
-
+        
         st.markdown(
             f'<div style="text-align:center;">'
-            f'<span class="stat-pill">⏱ {r["elapsed"]} seconds</span>'
-            f'<span class="stat-pill">{r["total_chars"]} chars</span>'
-            f'<span class="stat-pill">✓ {r["correct_chars"]} correct</span>'
+            f'<span class="stat-pill">⏱ {r["time"]} seconds</span>'
+            f'<span class="stat-pill">{r["char_count"]} characters</span>'
             f'<span class="stat-pill">📊 {r["wpm"]} WPM</span>'
             f'</div>',
             unsafe_allow_html=True
         )
-
+    
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("PLAY AGAIN", use_container_width=True):
         st.session_state.sentence = random.choice(SENTENCES)
         st.session_state.start_time = None
         st.session_state.result = None
-        st.session_state.submitted = False
-        st.session_state.timer_started = False
-        st.session_state.input_history = ""
+        st.session_state.timer_running = False
+        st.session_state.game_active = True
         st.rerun()
